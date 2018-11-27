@@ -1,0 +1,132 @@
+#!/bin/bash
+
+GNOME_SOUNDS_DEFAULT='/usr/share/gnome-control-center/sounds/gnome-sounds-default.xml'
+
+# main operarions:
+# 1 - Add Sound
+# 2 - remove sound
+
+# parameter:
+# $1 filename
+
+
+# ============ add & delete functions ============== #
+
+# this expects the file with the full path
+# moves the specified file to ==> /usr/share/sounds/sound-mod
+store_new_sound() {
+    # Consulted link: https://stackoverflow.com/questions/638975/how-do-i-tell-if-a-regular-file-does-not-exist-in-bash
+        if [ ! -e  /usr/share/sounds/sound-mod ];then
+                mkdir /usr/share/sounds/sound-mod/
+        fi
+        cp $1 /usr/share/sounds/sound-mod/
+}
+
+# this expects the file with the full path
+# creates the childnode based on the given path
+create_child_node() {
+        base=`basename $1`
+        # snippet source: 
+        # https://stackoverflow.com/questions/125281/how-do-i-remove-the-file-suffix-and-path-portion-from-a-path-string-in-bash
+        name=${base%.*}
+        new_custon_sound='  <sound deleted="false">
+        <name>'`basename $name`'</name>
+        <filename>'"$1"'</filename>
+        </sound>'
+        echo -e $new_custon_sound    
+}
+
+
+# -------------- old implementations ----------------------
+
+
+# this expects the file with the full path
+# uses the functions:
+#   - store_new_sound
+#   - create_child_node
+add_sound() {
+        store_new_sound $1
+        child_node=$(create_child_node $1)
+
+        # check if the config file exists
+        if [ -e $GNOME_SOUNDS_DEFAULT ];then
+
+
+        # get the configuration file length
+        conf_len=`grep -n '</sounds>' $GNOME_SOUNDS_DEFAULT|cut -b 1-3`
+
+        # next line based on
+        # this source: https://stackoverflow.com/questions/6537490/insert-a-line-at-specific-line-number-with-sed-or-awk
+        # writes the new xml sound childnode
+
+        # the following backup can be done automatically with the sed -i.bak
+        # cp /usr/share/gnome-control-center/sounds/gnome-sounds-default.xml /usr/share/gnome-control-center/sounds/gnome-sounds-default.xml.bak
+        sed -i.bak "$conf_len""i$child_node" $GNOME_SOUNDS_DEFAULT
+        fi
+}
+
+# this expects the file with the full path
+delete_sound() {
+        name_tag=`grep -hni "$1" $GNOME_SOUNDS_DEFAULT|cut -b 1-3`
+        opening_tag=`head -n +"$name_tag" $GNOME_SOUNDS_DEFAULT|grep -hn '<sound '|tail -1|cut -b 1-3`
+        closing_tag=`grep -nE '.*' $GNOME_SOUNDS_DEFAULT|tail -n +"$name_tag"|grep '</sound>'|head -1|cut -b 1-3`
+        # remove lines from n to m
+        # source: https://www.folkstalk.com/2013/03/sed-remove-lines-file-unix-examples.html
+        limits="$opening_tag,$closing_tag""d"
+        sed -i.bak $limits $GNOME_SOUNDS_DEFAULT
+        rm /usr/share/sounds/sound-mod/$1.*
+}
+
+# ==================================================
+
+
+if [ $# -eq 0 ];then
+        echo "No parameters specified"
+        echo "Exiting now..."
+        exit 0
+fi
+
+while [ $# -gt 0 ]; do
+        case "$1" in
+                -h|--help)
+                        echo "This is a script for adding or removing sounds in gnome-shell"
+                        echo " "
+                        echo "Usage: "
+                        echo "gnome-sound-mod [options] /path/to/file/file.ogg # .wav file may work too"
+                        echo " "
+                        echo "options:"
+                        echo "-h, --help                show brief help"
+                        echo "-a, --add                 add a custon sound"
+                        echo "-d, --delete              search and delete a custom sound"
+                        exit 0
+                        ;;
+                -a|--add)
+                        shift
+                        if test $# -gt 0; then
+                                snd=`realpath $1`
+                                echo "calling --> add_sound $snd"
+                                add_sound $snd
+                                exit 0
+                        else
+                                echo "no soundfile specified"
+                                exit 1
+                        fi
+                        shift
+                        ;;
+                -d|--delete)
+                        shift
+                        if test $# -gt 0; then
+                                echo "calling  --> delete_sound $1"
+                                delete_sound $1
+                                exit 0
+                        else
+                                echo "no soundfile specified"
+                                exit 1
+                        fi
+                        shift
+                        ;;
+                *)
+                        break
+                        ;;
+        esac
+done
