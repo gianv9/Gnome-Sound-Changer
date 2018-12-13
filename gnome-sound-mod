@@ -96,7 +96,7 @@ while [ $# -gt 0 ]; do
                         echo " "
                         echo "options:"
                         echo "-h, --help                show brief help"
-                        echo "-a, --add                 add a custon sound"
+                        echo "-a, --add                 add a custom sound"
                         echo "-d, --delete              search and delete a custom sound"
                         exit 0
                         ;;
